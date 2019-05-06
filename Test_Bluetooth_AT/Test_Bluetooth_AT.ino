@@ -6,6 +6,10 @@
  * Cargar este programa.
  * Abrir el serial monitor, a 9600, y setear "Both NL & CR"
  * Enviar "AT" (sin las comillas), tiene que responder OK.
+ * AT+NAME? nombre asignado a la placa.
+ * AT+PSWD? password asignado.
+ * AT+NAME=nombre, cambia el nombre asignado a la placa.
+ * AT+PSWD="password", cambia el código de la placa.
  */
 
 void setup() {
