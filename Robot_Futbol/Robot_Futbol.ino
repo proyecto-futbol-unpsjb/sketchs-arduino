@@ -51,6 +51,10 @@ long eco_measure = 0;
 // nota que utiliza el buzzer
 int nota = NOTE_FS5;
 
+// direccion de movimiento del servo
+int dir_a = 180;
+int dir_b = 0;
+
 /**
  * Recibe comandos por bluetooth.
  * Duino Joy: https://play.google.com/store/apps/details?id=com.lekpkd.duinojoy
@@ -87,10 +91,19 @@ tarea(tarea_comandos_duinojoy)
                 command = buf[0];
                 liberarSemaforo(semBin);
               }
-              if (buf[0] == 'z') {
+              if (buf[0] == 'b') {
+                command = buf[0];
+                liberarSemaforo(semBin);
+              }
+              if (buf[0] == 'y') {
                 nota = NOTE_A7;
                 liberarSemaforo(semBuz);                
               }
+              if (buf[0] == 'z') {
+                // cambia dirección del pateo
+                dir_a = (dir_a == 180) ? 0 : 180;
+                dir_b = (dir_b == 0) ? 180 : 0;
+              }              
             }            
           }
           break;
@@ -204,12 +217,13 @@ tarea(tarea_bateria)
  */
 tarea(tarea_patada) 
 {
-  servo.attach(A3);
+  servo.attach(A5);
   servo.write(90); // detiene el servo
+  int dir;
 
   while (true) {
     tomarSemaforo(semBin); // bloqueado 
-    servo.write(180); // gira a maxima velocidad
+    servo.write((command == 'a') ? dir_a : dir_b); // gira a maxima velocidad
     esperar(500); // espera a que realice un giro
     servo.write(90);    
   }
