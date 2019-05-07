@@ -35,15 +35,21 @@ DCMotor motor1(M1_EN, M1_D0, M1_D1);
 IRrecv irReceiver(A0);
 
 // Servo
-Servo servo01;
+Servo servo;
 
 //int op = 0;
 
 // Semaforo binario para sincronizar patada
 semaforo semBin;
 
+// Semaforo binario para hacer sonar el Buzzer
+semaforo semBuz;
+
 // actualizado por la tarea ecoica
-int eco_measure = 0;
+long eco_measure = 0;
+
+// nota que utiliza el buzzer
+int nota = NOTE_FS5;
 
 /**
  * Recibe comandos por bluetooth.
@@ -78,10 +84,14 @@ tarea(tarea_comandos_duinojoy)
               Serial.println(buf[0]);
               #endif
               if (buf[0] == 'a') {
-                 command = buf[0];
-                 liberarSemaforo(semBin);              
+                command = buf[0];
+                liberarSemaforo(semBin);
               }
-            }
+              if (buf[0] == 'z') {
+                nota = NOTE_A7;
+                liberarSemaforo(semBuz);                
+              }
+            }            
           }
           break;
         }
@@ -99,7 +109,9 @@ tarea(tarea_comandos_duinojoy)
       #if DEBUG_tarea_comandos_duinojoy == 1
       Serial.print(angle);
       Serial.print(" - ");
-      Serial.println(strength);
+      Serial.print(strength);
+      Serial.print(" - ");
+      Serial.println(command);
       #endif
     } 
 
@@ -157,6 +169,8 @@ tarea(tarea_sensor_ecoico)
   pinMode(A1, INPUT);
   
   while(true) {
+    eco_measure = 0;
+    
     //value = ping.measureCM(A1);
     pinMode(A1, OUTPUT);
     digitalWrite(A1, LOW);
@@ -165,7 +179,12 @@ tarea(tarea_sensor_ecoico)
     delayMicroseconds(5);
 
     pinMode(A1, INPUT);
-    eco_measure = pulseIn(A1, HIGH);
+    eco_measure = pulseIn(A1, HIGH) / 29 / 2;
+
+    if ((eco_measure > 0) && (eco_measure < 7)) {
+      nota = NOTE_F5;
+      liberarSemaforo(semBuz);
+    }
     
     esperarPeriodo();
   }
@@ -180,21 +199,27 @@ tarea(tarea_bateria)
   }
 }
 
-tarea(tarea_patada) {
-  while(true)
-  {
-    // preparar para patear
-    servo01.write(180);
-    esperar(1000);
-    servo01.write(60);
-    esperar(1000);
+/*
+ * Gira un servo de recorrido continuo para "patear".
+ */
+tarea(tarea_patada) 
+{
+  servo.attach(A3);
+  servo.write(90); // detiene el servo
 
-    // espera la orden
-    tomarSemaforo(semBin);
+  while (true) {
+    tomarSemaforo(semBin); // bloqueado 
+    servo.write(180); // gira a maxima velocidad
+    esperar(500); // espera a que realice un giro
+    servo.write(90);    
+  }
+}
 
-    // patear
-    servo01.write(0);
-    esperar(1000);
+tarea(tarea_buzzer)
+{  
+  while (true) {
+    tomarSemaforo(semBuz);
+    toneWithDelay(SPEAKER, nota, 750);    
   }
 }
 
@@ -213,15 +238,14 @@ void setup() {
   
   pinMode(LED_BUILTIN, OUTPUT);  
   
-  servo01.attach(A3);
-
   semBin = creaSemaforoBinario();
+  semBuz = creaSemaforoBinario();
 
-  // Problema: si se activa esta tarea no funciona el motor (!)
-  //crearTareaPeriodica(tarea_sensor_ecoico,     4, 25);  
-  crearTareaPeriodica(tarea_comandos_duinojoy, 3, 50);
-  crearTareaPeriodica(tarea_motor,             2, 100);
-  crearTarea(tarea_patada, 3);
+  crearTareaPeriodica(tarea_sensor_ecoico,     2, 500);  
+  crearTareaPeriodica(tarea_motor,             3, 100);
+  crearTareaPeriodica(tarea_comandos_duinojoy, 5, 50);  
+  crearTarea(tarea_patada, 4);
+  crearTarea(tarea_buzzer, 1);
   
   iniciarPlanificador();
 }
