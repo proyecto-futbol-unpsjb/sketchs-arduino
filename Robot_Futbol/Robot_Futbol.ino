@@ -229,6 +229,31 @@ tarea(tarea_patada)
   }
 }
 
+/*
+ * Patada con un servo de 180 grados
+ */
+tarea(tarea_patada_180) 
+{
+  servo.attach(A5);
+  servo.write(0);
+  
+  while(true)
+  {
+    // preparar para patear
+    servo.write(180);
+    esperar(1000);
+    servo.write(60);
+    esperar(1000);
+
+    // espera la orden
+    tomarSemaforo(semBin);
+
+    // patear
+    servo.write(0);
+    esperar(1000);
+  }
+}
+
 tarea(tarea_buzzer)
 {  
   while (true) {
