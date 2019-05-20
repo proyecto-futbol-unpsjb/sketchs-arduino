@@ -24,6 +24,13 @@
 // Cambia apariciones de bluetooth por Serial1
 #define bluetooth Serial1
 
+// Velocidad maxima y media de los motores
+#define MAX_SPEED 100
+#define AVG_SPEED 60
+
+// Tiempo maximo en modo turbo
+#define TURBO_TIME 3
+
 // Ping Sensor
 PingSensor ping(A1); // S1 input
 
@@ -54,6 +61,9 @@ int nota = NOTE_FS5;
 // direccion de movimiento del servo
 int dir_a = 180;
 int dir_b = 0;
+
+// turbo
+int turbo = 0;
 
 /**
  * Recibe comandos por bluetooth.
@@ -94,6 +104,12 @@ tarea(tarea_comandos_duinojoy)
               if (buf[0] == 'b') {
                 command = buf[0];
                 liberarSemaforo(semBin);
+              }
+              if (buf[0] == 'c') {
+                command = buf[0];
+                if (turbo == 0) {
+                  turbo = 1;
+                }
               }
               if (buf[0] == 'y') {
                 nota = NOTE_A7;
@@ -141,35 +157,39 @@ tarea(tarea_motor)
   int a = 0;
   int s = 0;
 
+  int speed = 0;
+
   while(true)
   {
+    speed = map(strength, 0, 100, 0, turbo == 1 ? MAX_SPEED : AVG_SPEED);
+    
     if (angle < 180) {
       if (angle < 80) {
-        motor0.setSpeed(strength * (angle / 90.0));
-        motor1.setSpeed(strength);        
+        motor0.setSpeed(speed * (angle / 90.0));
+        motor1.setSpeed(speed);        
       }
       else if (angle > 100) {        
-        motor0.setSpeed(strength);
-        motor1.setSpeed(strength * ((180 - angle) / 90.0));
+        motor0.setSpeed(speed);
+        motor1.setSpeed(speed * ((180 - angle) / 90.0));
       }
       else {
-        motor0.setSpeed(strength);
-        motor1.setSpeed(strength);
+        motor0.setSpeed(speed);
+        motor1.setSpeed(speed);
       }
     }
     else if (angle > 180) {
-      strength = strength * (-1);
+      speed = speed * (-1);
       if (angle > 280) {
-        motor0.setSpeed(strength * ((360 - angle) / 90.0));
-        motor1.setSpeed(strength);        
+        motor0.setSpeed(speed * ((360 - angle) / 90.0));
+        motor1.setSpeed(speed);        
       } 
       else if (angle < 260) {
-        motor0.setSpeed(strength);
-        motor1.setSpeed(strength * ((90 - (270 - angle)) / 90.0));  
+        motor0.setSpeed(speed);
+        motor1.setSpeed(speed * ((90 - (270 - angle)) / 90.0));  
       }
       else {
-        motor0.setSpeed(strength);
-        motor1.setSpeed(strength);
+        motor0.setSpeed(speed);
+        motor1.setSpeed(speed);
       }
     }
     
@@ -270,6 +290,23 @@ tarea(tarea_baliza_bluetooth)
   }
 }
 
+tarea(tarea_control)
+{
+  int cnt = 0;
+  while (true) {
+    if ((turbo == 1) && (cnt == 0)) {
+      cnt = TURBO_TIME;
+    }
+    if (cnt > 0) {
+      cnt = cnt - 1;
+    }
+    if (cnt == 0) {
+      turbo = 0;
+    }
+    esperarPeriodo();
+  }
+}
+
 
 void setup() {
   Serial.begin(9600);
@@ -280,6 +317,7 @@ void setup() {
   semBin = creaSemaforoBinario();
   semBuz = creaSemaforoBinario();
 
+  crearTareaPeriodica(tarea_control,           1, 1000);
   crearTareaPeriodica(tarea_sensor_ecoico,     2, 500);  
   crearTareaPeriodica(tarea_motor,             3, 100);
   crearTareaPeriodica(tarea_comandos_duinojoy, 5, 50);  
